@@ -1,0 +1,3 @@
+haxe build.hxml
+#open -a "Google Chrome" test.html
+
