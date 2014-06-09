@@ -10,6 +10,19 @@ import box2D.collision.*;
 import box2D.collision.shapes.*;
 import box2D.common.math.*;
 import box2D.dynamics.contacts.*;
+import box2D.dynamics.contacts.B2Contact;
+import box2D.dynamics.B2ContactListener;
+import Levels;
+
+class BallContactListener extends B2ContactListener {
+    public function new() {
+    	super();
+    }
+
+    override public function beginContact(contact:B2Contact) {
+    	// trace("begincontact");
+    }
+}
 
 class IHateLadders {
 	var spriteHeight = 22;
@@ -34,28 +47,8 @@ class IHateLadders {
 	// one a dictionary with x and y coordinates.
 	var ladders = new Map<String, Array<Map<String, Float>>>();
 
-	// Information about the ladder the player is currently on.
-	var currentLadderKey:String;
-	var currentLadderSegmentIndex:Int;
-	var currentLadderT:Float; // Position along ladder
-
-	// Make player snap to the given ladder at position t along the ladder.
-	function grabLadder(ladderKey:String, ladderSegmentIndex:Int, t:Float) {
-		var ladder = ladders[ladderKey][ladderSegmentIndex];
-		var nearX = ladder['startX'] + (ladder['endX'] - ladder['startX']) * t;
-		var nearY = ladder['startY'] + (ladder['endY'] - ladder['startY']) * t;
-
-		var shape = new Shape();
-		shape.graphics.lineStyle(1, Math.floor(Math.random()*255) + (Math.floor(Math.random()*255)<<8) + (Math.floor(Math.random()*255)<<16), 10);
-		shape.graphics.drawCircle(nearX * screenScale, nearY * screenScale, 10);
-		shape.graphics.moveTo(ladder['startX'] * screenScale, ladder['startY'] * screenScale);
-		shape.graphics.lineTo(ladder['endX'] * screenScale, ladder['endY'] * screenScale);
-		buffer.draw(shape);
-
-		currentLadderKey = ladderKey;
-		currentLadderSegmentIndex = ladderSegmentIndex;
-		currentLadderT = t;
-	}
+	// If player is holding on to a ladder, this joint connects him to it.
+	var ladderJoint:B2Joint = null;
 
 	// http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
 	function sqr(x:Float):Float {
@@ -72,85 +65,38 @@ class IHateLadders {
 		if (t > 1) return [1, dist2(p, w)];
 		return [t, dist2(p, new Point(v.x + t * (w.x - v.x), v.y + t * (w.y - v.y)))];
 	}
+
 	function distToSegment(p, v, w) { 
 		var ret = distToSegmentSquared(p, v, w); 
 		return [ret[0], Math.sqrt(ret[1])]; 
 	}	
 
 	function tryGrabbingLadder() {
-
-		// See if any ladder segment is close enough to grab
-		var minDist = 999999.0;
-		var minDistLadderKey:String = null;
-		var minDistSegmentIndex = -1;
-		var minT = -1.0;
-
-		for (key in ladders.keys()) {
-			var ladder = ladders[key];
-			for (i in 0...ladder.length) {
-				// Closest point to line segment?
-				var playerPos:Point = new Point(player.getPosition().x, player.getPosition().y);
-				var d = distToSegment(playerPos, new Point(ladder[i]['startX'], ladder[i]['startY']), new Point(ladder[i]['endX'], ladder[i]['endY']));
-				var dist = d[1];
-				if (dist < minDist) {
-					minDistLadderKey = key;
-					minDistSegmentIndex = i;
-					minDist = dist;
-					minT = d[0]; // How much along the ladder is the nearest point
-				}
-			}
-		}
-
-		if (minDist < ladderGrabDistance) {
-			grabLadder(minDistLadderKey, minDistSegmentIndex, minT);
-		}
 	}
 
+	// F4 to go to next error
+	// Ctrl-0 to go to files
 	function moveAlongLadder(amount) {
-		currentLadderT += amount;
 
-		// If this reached end of this ladder, then either cannot move or
-		// proceed to next ladder segment.
-		if (currentLadderT > 1) {
+		var ladderBody = ladderJoint.getBodyB();
+		world.destroyJoint(ladderJoint);
 
-			// If there is a next segment to hop on to, then continue movement there.
-			var segmentsInCurrentLadder = ladders[currentLadderKey].length;
-			if (currentLadderSegmentIndex + 1 < segmentsInCurrentLadder) {
-				currentLadderSegmentIndex += 1;
-				currentLadderT -= 1;
-			} else {
-				// Otherwise cannot move
-				currentLadderT = 1;
-			}
-		}
+		var jointDef = new B2DistanceJointDef();
+		jointDef.bodyA = player; 
+		jointDef.bodyB = ladderBody;
+		jointDef.localAnchorA = new B2Vec2(0.0, 0.0);
+		jointDef.localAnchorB = new B2Vec2(0.0, 0.0);
+		return world.createJoint(jointDef);
 
-		// Similar for going backwards on the ladder
-		if (currentLadderT < 0) {
-			if (currentLadderSegmentIndex > 0) {
-				currentLadderSegmentIndex -= 1;
-				currentLadderT += 1;
-			} else {
-				currentLadderT = 0;
-			}
-		}
 	}
-
-	function stickToLadder() {
-		var ladder = ladders[currentLadderKey][currentLadderSegmentIndex];
-		var grabPointX = ladder['startX'] + (ladder['endX'] - ladder['startX']) * currentLadderT;
-		var grabPointY = ladder['startY'] + (ladder['endY'] - ladder['startY']) * currentLadderT;
-		player.setPosition(new B2Vec2(grabPointX, grabPointY));
-	}	
 
 	function letGoOfLadder() {
-		currentLadderKey = null;
-		currentLadderSegmentIndex = -1;
-		currentLadderT = -1.0;
-		jump();
+		world.destroyJoint(ladderJoint);
+		ladderJoint = null;
 	}
 
 	function isOnLadder() {
-		return currentLadderKey != null;
+		return ladderJoint != null;
 	}	
 
 	function jump() {
@@ -177,11 +123,6 @@ class IHateLadders {
 
 	function tick() {
 
-		// If player is grabbing a ladder currently, then make sure they are at the grab point.
-		if (currentLadderKey != null) {
-			stickToLadder();
-		}
-
 		world.step(1.0/physScale, 10, 10);
 		if (keys[Keyboard.RIGHT]||keys[Keyboard.D]) {
 
@@ -191,24 +132,24 @@ class IHateLadders {
 			var by = player.getWorldCenter().y + tileHeight * 0.40;
 			var groundOnRight:Bool = someBodyAtPoint(ax, ay) || someBodyAtPoint(bx, by);
 
-			if (!groundOnRight) {
+//			if (!groundOnRight) {
 				player.applyImpulse(new B2Vec2(
 					80.0,
 					0.0
 				), player.getWorldCenter());
-			}
+//			}
 		}
 
 		if (keys[Keyboard.LEFT] || keys[Keyboard.A]) {
-			var groundOnLeft = someBodyAtPoint(player.getWorldCenter().x - tileWidth * 0.55, player.getWorldCenter().y - tileHeight * 0.40)
+/*			var groundOnLeft = someBodyAtPoint(player.getWorldCenter().x - tileWidth * 0.55, player.getWorldCenter().y - tileHeight * 0.40)
 	 		|| someBodyAtPoint(player.getWorldCenter().x - tileWidth * 0.55, player.getWorldCenter().y + tileHeight * 0.40);
 
-			if (!groundOnLeft) {
+			if (!groundOnLeft) {*/
 				player.applyImpulse(new B2Vec2(
 					-80.0,
 					0.0
 				), player.getWorldCenter());
-			}
+//			}
 		}
 
 		if (keys[Keyboard.UP]||keys[Keyboard.W]) {
@@ -226,7 +167,8 @@ class IHateLadders {
 		}
 
 		if (keys[Keyboard.SPACE]||keys[Keyboard.Z]||keys[Keyboard.X]) {
-			jump();
+			letGoOfLadder();
+//			jump();
 		} else {
 			canStillJumpTicks = 0;
 		}
@@ -260,14 +202,15 @@ class IHateLadders {
 		buffer.draw(shape);
 	}
 
+	var i = 0;
+
 	function drawBodies() {
-
-		var bb = world.getBodyList();
-		while ((bb = bb.getNext()) != null) {
-			var data:Map<String,Dynamic> = bb.getUserData();
-			if (data == null) continue;
-
-			var sourceY = 0;
+		i++;
+		var body = world.getBodyList();
+		var j = 0;
+		while (body != null) {
+			var data:Map<String,Dynamic> = body.getUserData();
+/*			var sourceY = 0;
 			if (data['flipped']) {
 				sourceY = spriteHeight;
 			}
@@ -278,7 +221,7 @@ class IHateLadders {
 			// One physics box can take several sprite sheet items to represent
 			if (data['type'] == 'ground') {
 				for (i in 0...data['groundWidth']) {
-					dest = new Point(bb.getPosition().x * screenScale - 10 - (data['groundWidth']-1) * tileWidth + i * tileWidth * 2, bb.getPosition().y * screenScale - 11);
+					dest = new Point(body.getPosition().x * screenScale - 10 - (data['groundWidth']-1) * tileWidth + i * tileWidth * 2, body.getPosition().y * screenScale - 11);
 					buffer.copyPixels(
 						sheet,
 						source,
@@ -288,10 +231,18 @@ class IHateLadders {
 			}
 
 			if (data['type'] == 'ladder') {
+				if (ladderJoint == null) {
+					ladderJoint = createTestJoint(body);
+				}
 			}
 
 			if (data['type'] == 'player') {
-				dest = new Point(Math.floor(bb.getPosition().x) * screenScale - 10, Math.floor(bb.getPosition().y) * screenScale - 11);
+				if (ladderJoint != null) {
+					world.destroyJoint(ladderJoint);
+				}
+
+				trace(body.getPosition().y);
+				dest = new Point(Math.floor(body.getPosition().x) * screenScale - 10, Math.floor(body.getPosition().y) * screenScale - 11);
 
 				buffer.copyPixels(
 					sheet,
@@ -305,16 +256,16 @@ class IHateLadders {
 
 				// Flip sprite if it starts going in a new direction. But when it stops it should remain
 				// facing the direction it was previously going towards.
-				if (Math.abs(bb.getLinearVelocity().x) > 0.1) {
-					data['flipped'] = bb.getLinearVelocity().x < 0;
+				if (Math.abs(body.getLinearVelocity().x) > 0.1) {
+					data['flipped'] = body.getLinearVelocity().x < 0;
 				}
 
 				var falling = false;
-				if (bb.getLinearVelocity().y > 1) {
+				if (body.getLinearVelocity().y > 1) {
 					falling = true;
 				}
 
-				if (falling||currentLadderKey!=null) {
+				if (falling || isOnLadder()) {
 					data['frame'] = 5;
 				} else {
 
@@ -322,89 +273,28 @@ class IHateLadders {
 						data['frame'] = 2;
 					}
 
-					data['frame'] += Math.abs(bb.getLinearVelocity().x) * 0.025;
+					data['frame'] += Math.abs(body.getLinearVelocity().x) * 0.025;
 					if (data['frame'] > 4) {
 						data['frame'] = 1;
 					}
 				}
 			}
+*/
+
+			body = body.getNext();
+			j++;
 		}
 	}
 
 	function refresh() {
 		buffer.fillRect(buffer.rect, 0xff0000ff);
+		i++;
 		drawBodies();
 //		drawLadders();
 		world.drawDebugData();
 		buffer.draw(debugSprite);
 		tick();
 	}
-
-	var levels = [
-'xx..........................
-..x.@.......................
-..x.........................
-..xxx.......................
-....x.......................
-............................
-............................
-...............@............
-...............x............
-............................
-............................
-7...8xxxxxxx9xxxxxx5xxxxx6xx
-7...........9............6..
-7...........9............6..
-xxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-
-'............................
-............................
-............................
-............................
-........1........2....3.....
-........1...@....2....3.....
-........1........2....3.....
-........1........2....3.....
-........1........2....3.....
-........1........2....3.....
-........1........2....3.....
-........1........2....3.....
-........1........2....3.....
-........1........2....3.....
-xxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-
-'............................
-xxx.............xxxx3xxxxxxx
-..xx...........xx...3.......
-...xx.........xx....3.......
-...xxx.......xxx....3.......
-xx1xxxx.....xxxx4xxx3xxxxxxx
-..1...xx...xx...4...........
-..1....xx2xx....4...........
-7xxx8....2.....x4xx5xxx.....
-7...8..............5........
-7...8..............5........
-7...8xxxxxxx9xxxxxx5xxxxx6xx
-7...........9..@.........6..
-7...........9............6..
-xxxxxxxxxxxxxxxxxxxxxxxxxxxx',
-
-'............................
-............................
-...........................x
-...................xxx..x..x
-...............xxxxx.x.....x
-............xxxx.....x....xx
-xxxxxx...............x...xxx
-x....x......xx...x....x..xxx
-x....x..xx...........x.....x
-x....xxxx..........xxxxxxxxx
-x..........................x
-x..xxxxxxxxx9x...xx5xxxxx6xx
-x...........9..@...5.....6.x
-x...........9......5.....6.x
-xxxxxxx.x.xxxxxxxxxxxxxxxxxx'
-	];
 
 // Use the ladder drawing method to do title screen logo!
 
@@ -493,12 +383,13 @@ xxxxxxx.x.xxxxxxxxxxxxxxxxxx'
 
 		var body = world.createBody(bodyDef);
 		body.createFixture(fixtureDef);
+
 		return body;
 	}
 
 	function makeLevel() {
 		var ladderAlreadyCreated:Map<String, Bool> = new Map();
-		var level = levels[1];
+		var level = Levels.levels[1];
 
 		var y = 15;
 		while (y > 0) {
@@ -591,11 +482,22 @@ xxxxxxx.x.xxxxxxxxxxxxxxxxxx'
 		world.setDebugDraw(debugDraw);
 	}
 
+	var contactListener:B2ContactListener;
+
 	public function new(sheet:flash.display.BitmapData) {
 		this.sheet = sheet;
 
 		world = new B2World(new B2Vec2(0.0, 10.0), true);
+/*		trace('There are ' + Std.string(world.getBodyCount()) + '');
+		world.destroyBody(world.getBodyList());
+		trace('There are ' + Std.string(world.getBodyCount()) + '');
+*/
+		trace(Std.string(world.getBodyList().m_mass));
+
+		contactListener = new BallContactListener();
+		world.setContactListener(contactListener);
 		makeLevel();
+		//player = createPlayerAt(100.0, 0.0);
 		initKeyboard();
 
 		buffer = new BitmapData(flash.Lib.current.stage.stageWidth, flash.Lib.current.stage.stageHeight);
@@ -616,9 +518,22 @@ xxxxxxx.x.xxxxxxxxxxxxxxxxxx'
 		if (type == 'player') {
 			return true; // continue to next fixture
 		}
-
-    	overlaps = true;
+    	overlaps = true;    	
     	return false; // don't continue to next fixture
+	}
+
+	function createTestJoint(bodyB:B2Body):B2Joint {
+		if (player == null) {
+			trace("Player was NULL when trying to create ladder joint.");
+			return null;
+		}
+		var jointDef = new B2DistanceJointDef();
+		jointDef.bodyA = player; 
+		jointDef.bodyB = bodyB;
+		jointDef.localAnchorA = new B2Vec2(0.0, 0.0); // Will cause mayhem, but let's just try it
+		jointDef.localAnchorB = new B2Vec2(0.0, 0.0);
+		var joint = world.createJoint(jointDef);
+		return joint;
 	}
 
 	public function someBodyAtPoint(px, py):Bool {
