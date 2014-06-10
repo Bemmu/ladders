@@ -1,4 +1,7 @@
-class Levels {
+class Constants {
+	public var spriteHeight = 22;
+	public var spriteWidth = 20;
+
 	public static var levels = [
 'xx..........................
 ..x.@.......................

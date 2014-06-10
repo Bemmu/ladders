@@ -23,19 +23,56 @@ class ContactListener extends B2ContactListener {
     }
 }
 
-class Monster {
+class GameObject {
+	public static var spriteHeight = 22;
+	public static var spriteWidth = 20;
+	public static var tileWidth = 10;
+	public var flipped = false;
+	public var frame = 0;
+
+	public function copyPixelsFromSpriteSheet(buffer:BitmapData, sheet:BitmapData, dest:Point) {
+		var sourceY = 0;
+		if (flipped) {
+			sourceY = spriteHeight; // Flipped versions of sprites are on second row of sprite sheet
+		}
+
+		var source = new Rectangle(spriteWidth * Math.floor(frame), sourceY, spriteWidth, spriteHeight);
+
+		buffer.copyPixels(
+			sheet,
+			source,
+			dest
+		);
+	}
+
+	public function draw(buffer:BitmapData, sheet:BitmapData) {
+
+	}
+
+
 }
 
-class Player extends Monster {
+class Player extends GameObject {
 }
 
-class IHateLadders {
-	var spriteHeight = 22;
-	var spriteWidth = 20;
+class Ground extends GameObject {
+	public var groundWidth:Int;
+
+	override public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
+		for (i in 0...groundWidth) {
+			copyPixelsFromSpriteSheet(buffer, sheet, new Point(
+				bodyX - 10 - (groundWidth-1) * tileWidth + i * tileWidth * 2, 
+				bodyY - 11
+			));
+		}
+	}
+
+}
+
+class ProtectTheWall {
 	var buffer:BitmapData = null;
 	var sheet:BitmapData = null;
 	var keys:Map<Int, Bool> = new Map();
-	var tileWidth = 10;
 	var tileHeight = 11;
 	var physScale = 10.0;
 	var screenScale = 2.0; // how many times larger assets should be shown on screen relative to their native
@@ -48,33 +85,8 @@ class IHateLadders {
 	var ladderGrabDistance = 4;
 	var climbSpeed = 0.05;
 
-	// Dict key is the ladder ID character in the level. Value is an array of ladder segments, each
-	// one a dictionary with x and y coordinates.
-	var ladders = new Map<String, Array<Map<String, Float>>>();
-
 	// If player is holding on to a ladder, this joint connects him to it.
 	var ladderJoint:B2Joint = null;
-
-	// http://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
-	function sqr(x:Float):Float {
-		return x * x;
-	}
-	function dist2(a:Point, b:Point):Float { 
-		return sqr(a.x - b.x) + sqr(a.y - b.y);
-	}
-	function distToSegmentSquared(p:Point, v:Point, w:Point) {
-		var l2:Float = dist2(v, w);
-		if (l2 == 0) return [0, dist2(p, v)];
-		var t:Float = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-		if (t < 0) return [0, dist2(p, v)];
-		if (t > 1) return [1, dist2(p, w)];
-		return [t, dist2(p, new Point(v.x + t * (w.x - v.x), v.y + t * (w.y - v.y)))];
-	}
-
-	function distToSegment(p, v, w) { 
-		var ret = distToSegmentSquared(p, v, w); 
-		return [ret[0], Math.sqrt(ret[1])]; 
-	}	
 
 	function tryGrabbingLadder() {
 		// Grab the ladder we are on, if not already grabbing it.
@@ -116,7 +128,7 @@ class IHateLadders {
 		var groundBelow = someBodyAtPoint(player.getWorldCenter().x + tileWidth * 0.4, player.getWorldCenter().y + tileHeight * 0.55)
 		|| someBodyAtPoint(player.getWorldCenter().x - tileWidth * 0.4, player.getWorldCenter().y + tileHeight * 0.55);
 
-		if (groundBelow||isOnLadder()) {
+		if (groundBelow || isOnLadder()) {
 			canStillJumpTicks = jumpTicks;
 		}
 
@@ -124,6 +136,7 @@ class IHateLadders {
 			letGoOfLadder();
 		}
 
+		// Can hover in the air a bit after jumping to control jumping height
 		canStillJumpTicks--;
 		if (canStillJumpTicks > 0) {
 			player.applyImpulse(new B2Vec2(
@@ -136,7 +149,7 @@ class IHateLadders {
 	function tick() {
 
 		world.step(1.0/physScale, 10, 10);
-		if (keys[Keyboard.RIGHT]||keys[Keyboard.D]) {
+		if (keys[Keyboard.RIGHT] || keys[Keyboard.D]) {
 
 			var ax = player.getWorldCenter().x + tileWidth * 0.55;
 			var ay = player.getWorldCenter().y - tileHeight * 0.40;
@@ -186,33 +199,6 @@ class IHateLadders {
 		}
 	}
 
-	function drawLadders() {
-		var shape = new Shape();
-
-		// Iterate ladders
-		for (ladder in ladders) {
-			// Draw ladder segments
-			for (i in 0...ladder.length) {//  var i = 0; i < ladder.length; i++) {
-
-/*				var source:Rectangle, dest:Point;
-				dest = new Point(ladder[i]['startX'] * screenScale, ladder[i]['startY'] * screenScale);
-				var sourceY = 0;
-				source = new Rectangle(spriteWidth * 0, sourceY, spriteWidth, spriteHeight);
-
-				buffer.copyPixels(
-					sheet,
-					source,
-					dest
-				);
-*/
-				shape.graphics.lineStyle(1, Math.floor(Math.random()*255) + (Math.floor(Math.random()*255)<<8) + (Math.floor(Math.random()*255)<<16), 1);
-				shape.graphics.drawCircle(ladder[i]['startX'] * screenScale, ladder[i]['startY'] * screenScale, 10);
-				shape.graphics.moveTo(ladder[i]['startX'] * screenScale, ladder[i]['startY'] * screenScale);
-				shape.graphics.lineTo(ladder[i]['endX'] * screenScale, ladder[i]['endY'] * screenScale);
-			}
-		}
-		buffer.draw(shape);
-	}
 
 	var i = 0;
 
@@ -221,33 +207,15 @@ class IHateLadders {
 		var body = world.getBodyList();
 		var j = 0;
 		while (body != null) {
-			var data:Map<String,Dynamic> = body.getUserData();
+			var gameObject:GameObject = body.getUserData();
 
-			// There is initially one default body added by Box2D. Ignore it.
-			if (data == null) {
+			// There is initially one default body added by Box2D with no attached UserData. Ignore it.
+			if (gameObject == null) {
 				body = body.getNext();
 				continue;
 			}
 
-			var sourceY = 0;
-			if (data['flipped']) {
-				sourceY = spriteHeight;
-			}
-
-			var source:Rectangle, dest:Point;
-			source = new Rectangle(spriteWidth * Math.floor(data['frame']), sourceY, spriteWidth, spriteHeight);
-
-			// One physics box can take several sprite sheet items to represent
-			if (data['type'] == 'ground') {
-				for (i in 0...data['groundWidth']) {
-					dest = new Point(body.getPosition().x * screenScale - 10 - (data['groundWidth']-1) * tileWidth + i * tileWidth * 2, body.getPosition().y * screenScale - 11);
-					buffer.copyPixels(
-						sheet,
-						source,
-						dest
-					);
-				}
-			}
+			gameObject.draw(buffer, sheet, body.getPosition().x * screenScale, body.getPosition().y * screenScale);
 
 			if (data['type'] == 'ladder') {
 /*				if (ladderJoint == null) {
@@ -324,7 +292,6 @@ class IHateLadders {
 	function refresh() {
 		buffer.fillRect(buffer.rect, 0xff0000ff);
 		drawBodies();
-//		drawLadders();
 		world.drawDebugData();
 		buffer.draw(debugSprite);
 		tick();
@@ -591,7 +558,7 @@ class Game {
     static function main() {
     	var loader = new flash.display.Loader();
     	loader.contentLoaderInfo.addEventListener(flash.events.Event.COMPLETE, function(_) {
-    		var game = new IHateLadders(untyped loader.content.bitmapData);
+    		var game = new ProtectTheWall(untyped loader.content.bitmapData);
     	});
     	loader.load(new flash.net.URLRequest("sheet.png"));
     	
