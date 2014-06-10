@@ -14,14 +14,19 @@ import box2D.dynamics.contacts.B2Contact;
 import box2D.dynamics.B2ContactListener;
 import Levels;
 
-class BallContactListener extends B2ContactListener {
+class ContactListener extends B2ContactListener {
     public function new() {
     	super();
     }
 
     override public function beginContact(contact:B2Contact) {
-    	// trace("begincontact");
     }
+}
+
+class Monster {
+}
+
+class Player extends Monster {
 }
 
 class IHateLadders {
@@ -72,6 +77,10 @@ class IHateLadders {
 	}	
 
 	function tryGrabbingLadder() {
+		// Grab the ladder we are on, if not already grabbing it.
+		if (ladderNearUser() != null && ladderJoint == null) {
+			trace('would climb');
+		}
 	}
 
 	// F4 to go to next error
@@ -89,6 +98,9 @@ class IHateLadders {
 		return world.createJoint(jointDef);
 
 	}
+
+	// Big arrows can be shot up to actually remove tiles so the player can fall to the ground.trace
+	// Could drop ... fuck it stop having ideas and start doing prototyping.
 
 	function letGoOfLadder() {
 		world.destroyJoint(ladderJoint);
@@ -210,7 +222,14 @@ class IHateLadders {
 		var j = 0;
 		while (body != null) {
 			var data:Map<String,Dynamic> = body.getUserData();
-/*			var sourceY = 0;
+
+			// There is initially one default body added by Box2D. Ignore it.
+			if (data == null) {
+				body = body.getNext();
+				continue;
+			}
+
+			var sourceY = 0;
 			if (data['flipped']) {
 				sourceY = spriteHeight;
 			}
@@ -231,17 +250,19 @@ class IHateLadders {
 			}
 
 			if (data['type'] == 'ladder') {
-				if (ladderJoint == null) {
+/*				if (ladderJoint == null) {
+					trace("create te");
 					ladderJoint = createTestJoint(body);
-				}
+				}*/
 			}
 
 			if (data['type'] == 'player') {
-				if (ladderJoint != null) {
+/*				if (ladderJoint != null) {
+					trace("destroy te");
 					world.destroyJoint(ladderJoint);
+					ladderJoint = null;
 				}
-
-				trace(body.getPosition().y);
+*/
 				dest = new Point(Math.floor(body.getPosition().x) * screenScale - 10, Math.floor(body.getPosition().y) * screenScale - 11);
 
 				buffer.copyPixels(
@@ -279,16 +300,29 @@ class IHateLadders {
 					}
 				}
 			}
-*/
 
 			body = body.getNext();
 			j++;
 		}
 	}
 
+	function ladderNearUser():B2Body {
+		// Is user over a ladder?
+		var ladder = null;
+		world.queryPoint(function (fixture:box2D.dynamics.B2Fixture):Bool {
+			var userData:Map<String,Dynamic> = fixture.getBody().getUserData();
+			if (userData != null) {
+				if (userData['type'] == 'ladder') {
+					ladder = fixture.getBody();
+				}
+			}
+			return true;
+		}, player.getPosition());
+		return ladder;
+	}
+
 	function refresh() {
 		buffer.fillRect(buffer.rect, 0xff0000ff);
-		i++;
 		drawBodies();
 //		drawLadders();
 		world.drawDebugData();
@@ -488,13 +522,8 @@ class IHateLadders {
 		this.sheet = sheet;
 
 		world = new B2World(new B2Vec2(0.0, 10.0), true);
-/*		trace('There are ' + Std.string(world.getBodyCount()) + '');
-		world.destroyBody(world.getBodyList());
-		trace('There are ' + Std.string(world.getBodyCount()) + '');
-*/
-		trace(Std.string(world.getBodyList().m_mass));
 
-		contactListener = new BallContactListener();
+		contactListener = new ContactListener();
 		world.setContactListener(contactListener);
 		makeLevel();
 		//player = createPlayerAt(100.0, 0.0);
@@ -506,6 +535,7 @@ class IHateLadders {
 
 		flash.Lib.current.stage.addEventListener(Event.ENTER_FRAME, OnEnter);
 		debugSetup();
+
 	}
 
 	// Welcome to your new job as ladder inspector.
