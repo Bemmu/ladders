@@ -1,4 +1,4 @@
-class Constants {
+class Levels {
 	public var spriteHeight = 22;
 	public var spriteWidth = 20;
 

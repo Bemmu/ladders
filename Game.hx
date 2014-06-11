@@ -1,3 +1,6 @@
+// F4 to go to next error
+// Ctrl-0 to go to files
+
 import box2D.foo.*;
 import flash.display.*;
 import flash.events.*;
@@ -23,12 +26,25 @@ class ContactListener extends B2ContactListener {
     }
 }
 
+// To add behavior and drawing to Box2D bodies
 class GameObject {
 	public static var spriteHeight = 22;
 	public static var spriteWidth = 20;
 	public static var tileWidth = 10;
+	public static var tileHeight = 11;
 	public var flipped = false;
-	public var frame = 0;
+	public var frame = 0.0;
+	var body:B2Body = null;
+	var world:B2World = null;
+	var isLadder = false;
+
+	public function tick() {
+	}
+
+	public function new(body:B2Body, world:B2World) {
+		this.body = body;
+		this.world = world;
+	}
 
 	public function copyPixelsFromSpriteSheet(buffer:BitmapData, sheet:BitmapData, dest:Point) {
 		var sourceY = 0;
@@ -41,69 +57,111 @@ class GameObject {
 		buffer.copyPixels(
 			sheet,
 			source,
-			dest
+			dest,
+			null, null, true // alpha
 		);
 	}
 
-	public function draw(buffer:BitmapData, sheet:BitmapData) {
+	// Is the center point over a ladder? (regardless if holding on to it)
+	function overLadder():B2Body {
+		var ladder = null;
+		world.queryPoint(function (fixture:box2D.dynamics.B2Fixture):Bool {
+			var gameObject:GameObject = body.getUserData();
+			if (gameObject != null) {
+				if (gameObject.isLadder) {
+					ladder = fixture.getBody();
+				}
+			}
+			return true;
+		}, body.getPosition());
+		return ladder;
+	}
+
+	public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
 
 	}
 
+/*	public function someBodyAtPoint(px, py):Bool {
+	    // Make a small box.
+	    var px2 = px;
+	    var py2 = py;
+	    var pointVec:B2Vec2 = new B2Vec2();
+	    pointVec.set(px2, py2);
+	    var aabb = new B2AABB();
+	    aabb.lowerBound.set(px2 - 0.001, py2 - 0.001);
+	    aabb.upperBound.set(px2 + 0.001, py2 + 0.001);
+	    
+	    // Query the world for overlapping shapes.
+	    var k_maxCount:Int = 10;
+	    var shapes = [];
 
-}
-
-class Player extends GameObject {
-}
-
-class Ground extends GameObject {
-	public var groundWidth:Int;
-
-	override public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
-		for (i in 0...groundWidth) {
-			copyPixelsFromSpriteSheet(buffer, sheet, new Point(
-				bodyX - 10 - (groundWidth-1) * tileWidth + i * tileWidth * 2, 
-				bodyY - 11
-			));
-		}
+	    overlaps = false;
+	    world.queryAABB(callback, aabb);
+	    return overlaps;
 	}
-
+*/
 }
 
-class ProtectTheWall {
-	var buffer:BitmapData = null;
-	var sheet:BitmapData = null;
-	var keys:Map<Int, Bool> = new Map();
-	var tileHeight = 11;
-	var physScale = 10.0;
-	var screenScale = 2.0; // how many times larger assets should be shown on screen relative to their native
-	var world:B2World;
-	var debugSprite:Sprite;
-	var player:B2Body = null;
+class StickMan extends GameObject {
+
+	// If holding on to a ladder, this joint connects him to it.
+	var ladderJoint:B2Joint = null;
+	var climbSpeed = 0.05;
 	var jumpTicks = 5;
 	var canStillJumpTicks = 5; // countdown for how long can still continue jumping
-	var jumpImpulse = 350;
-	var ladderGrabDistance = 4;
-	var climbSpeed = 0.05;
 
-	// If player is holding on to a ladder, this joint connects him to it.
-	var ladderJoint:B2Joint = null;
+	function isHoldingOnToLadder() {
+		return ladderJoint != null;
+	}
 
-	function tryGrabbingLadder() {
-		// Grab the ladder we are on, if not already grabbing it.
-		if (ladderNearUser() != null && ladderJoint == null) {
-			trace('would climb');
+	function animate() {
+		// Flip sprite if it starts going in a new direction. But when it stops it should remain
+		// facing the direction it was previously going towards.
+		if (Math.abs(body.getLinearVelocity().x) > 0.1) {
+			this.flipped = body.getLinearVelocity().x < 0;
+		}
+
+		var falling = false;
+		if (body.getLinearVelocity().y > 1) {
+			falling = true;
+		}
+
+		if (falling || isHoldingOnToLadder()) {
+			frame = 5;
+		} else {
+
+			if (frame == 5) {
+				frame = 2;
+			}
+
+			frame += Math.abs(body.getLinearVelocity().x) * 0.025;
+			if (frame > 4) {
+				frame = 1;
+			}
 		}
 	}
 
-	// F4 to go to next error
-	// Ctrl-0 to go to files
-	function moveAlongLadder(amount) {
+	override public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
+		copyPixelsFromSpriteSheet(buffer, sheet, new Point(
+			bodyX - 10, 
+			bodyY - 11
+		));
+		animate();
+	}
+
+	function tryGrabbingLadder() {
+		trace('would climb');
+	}
+
+	function moveAlongLadder(up:Bool) {
+
+		var amount = up ? climbSpeed : -climbSpeed;
 
 		var ladderBody = ladderJoint.getBodyB();
 		world.destroyJoint(ladderJoint);
 
 		var jointDef = new B2DistanceJointDef();
-		jointDef.bodyA = player; 
+		jointDef.bodyA = body; 
 		jointDef.bodyB = ladderBody;
 		jointDef.localAnchorA = new B2Vec2(0.0, 0.0);
 		jointDef.localAnchorB = new B2Vec2(0.0, 0.0);
@@ -119,14 +177,10 @@ class ProtectTheWall {
 		ladderJoint = null;
 	}
 
-	function isOnLadder() {
-		return ladderJoint != null;
-	}	
-
-	function jump() {
+/*	function jump() {
 		// Sample points on bottom left and bottom right to decide whether there is ground below.
-		var groundBelow = someBodyAtPoint(player.getWorldCenter().x + tileWidth * 0.4, player.getWorldCenter().y + tileHeight * 0.55)
-		|| someBodyAtPoint(player.getWorldCenter().x - tileWidth * 0.4, player.getWorldCenter().y + tileHeight * 0.55);
+		var groundBelow = someBodyAtPoint(player.getWorldCenter().x + GameObject.tileWidth * 0.4, player.getWorldCenter().y + GameObject.tileHeight * 0.55)
+		|| someBodyAtPoint(player.getWorldCenter().x - GameObject.tileWidth * 0.4, player.getWorldCenter().y + GameObject.tileHeight * 0.55);
 
 		if (groundBelow || isOnLadder()) {
 			canStillJumpTicks = jumpTicks;
@@ -144,24 +198,31 @@ class ProtectTheWall {
 				-jumpImpulse
 			), player.getWorldCenter());
 		}
+	}*/
+}
+
+class Player extends StickMan {
+	var keys:Map<Int, Bool> = new Map();
+	
+	override public function new(body:B2Body, world:B2World, keys:Map<Int, Bool>) {
+		super(body, world);
+		this.keys = keys;
 	}
 
-	function tick() {
-
-		world.step(1.0/physScale, 10, 10);
+	override public function tick() {
 		if (keys[Keyboard.RIGHT] || keys[Keyboard.D]) {
 
-			var ax = player.getWorldCenter().x + tileWidth * 0.55;
-			var ay = player.getWorldCenter().y - tileHeight * 0.40;
-			var bx = player.getWorldCenter().x + tileWidth * 0.55;
-			var by = player.getWorldCenter().y + tileHeight * 0.40;
-			var groundOnRight:Bool = someBodyAtPoint(ax, ay) || someBodyAtPoint(bx, by);
+			var ax = body.getWorldCenter().x + GameObject.tileWidth * 0.55;
+			var ay = body.getWorldCenter().y - GameObject.tileHeight * 0.40;
+			var bx = body.getWorldCenter().x + GameObject.tileWidth * 0.55;
+			var by = body.getWorldCenter().y + GameObject.tileHeight * 0.40;
+//			var groundOnRight:Bool = someBodyAtPoint(ax, ay) || someBodyAtPoint(bx, by);
 
 //			if (!groundOnRight) {
-				player.applyImpulse(new B2Vec2(
+				body.applyImpulse(new B2Vec2(
 					80.0,
 					0.0
-				), player.getWorldCenter());
+				), body.getWorldCenter());
 //			}
 		}
 
@@ -170,24 +231,24 @@ class ProtectTheWall {
 	 		|| someBodyAtPoint(player.getWorldCenter().x - tileWidth * 0.55, player.getWorldCenter().y + tileHeight * 0.40);
 
 			if (!groundOnLeft) {*/
-				player.applyImpulse(new B2Vec2(
+				body.applyImpulse(new B2Vec2(
 					-80.0,
 					0.0
-				), player.getWorldCenter());
+				), body.getWorldCenter());
 //			}
 		}
 
 		if (keys[Keyboard.UP]||keys[Keyboard.W]) {
-			if (isOnLadder()) {
-				moveAlongLadder(climbSpeed);
+			if (isHoldingOnToLadder()) {
+				moveAlongLadder(true);
 			} else {
 				tryGrabbingLadder();
 			}
 		}
 
 		if (keys[Keyboard.DOWN]||keys[Keyboard.S]) {
-			if (isOnLadder()) {
-				moveAlongLadder(-climbSpeed);
+			if (isHoldingOnToLadder()) {
+				moveAlongLadder(false);
 			}
 		}
 
@@ -197,6 +258,44 @@ class ProtectTheWall {
 		} else {
 			canStillJumpTicks = 0;
 		}
+	}
+}
+
+class Ground extends GameObject {
+	public var groundWidth:Int;
+
+	override public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
+		for (i in 0...groundWidth) {
+			copyPixelsFromSpriteSheet(buffer, sheet, new Point(
+				bodyX - 10 - (groundWidth-1) * GameObject.tileWidth + i * GameObject.tileWidth * 2, 
+				bodyY - 11
+			));
+		}
+	}
+
+}
+
+class Ladder extends Game.GameObject {
+	override public function new(body:B2Body, world:B2World) {
+		super(body, world);
+		isLadder = true;
+	}
+}
+
+class ProtectTheWall {
+	var buffer:BitmapData = null;
+	var sheet:BitmapData = null;
+	var keys:Map<Int, Bool> = new Map();
+	var physScale = 10.0;
+	var screenScale = 2.0; // how many times larger assets should be shown on screen relative to their native
+	var world:B2World;
+	var debugSprite:Sprite;
+	var player:B2Body = null;
+	var jumpImpulse = 350;
+	var ladderGrabDistance = 4;
+
+	function tick() {
+		world.step(1.0/physScale, 10, 10);
 	}
 
 
@@ -215,78 +314,28 @@ class ProtectTheWall {
 				continue;
 			}
 
-			gameObject.draw(buffer, sheet, body.getPosition().x * screenScale, body.getPosition().y * screenScale);
+			gameObject.draw(buffer, sheet, Math.floor(body.getPosition().x * screenScale), Math.floor(body.getPosition().y * screenScale));
+			gameObject.tick();
 
-			if (data['type'] == 'ladder') {
-/*				if (ladderJoint == null) {
+/*			if (data['type'] == 'ladder') {
+				if (ladderJoint == null) {
 					trace("create te");
 					ladderJoint = createTestJoint(body);
-				}*/
+				}
 			}
 
 			if (data['type'] == 'player') {
-/*				if (ladderJoint != null) {
+				if (ladderJoint != null) {
 					trace("destroy te");
 					world.destroyJoint(ladderJoint);
 					ladderJoint = null;
 				}
+			}
 */
-				dest = new Point(Math.floor(body.getPosition().x) * screenScale - 10, Math.floor(body.getPosition().y) * screenScale - 11);
-
-				buffer.copyPixels(
-					sheet,
-					source,
-					dest,
-					null, null, true // alpha
-				);
-			}
-
-			if (data['type'] == 'player') {
-
-				// Flip sprite if it starts going in a new direction. But when it stops it should remain
-				// facing the direction it was previously going towards.
-				if (Math.abs(body.getLinearVelocity().x) > 0.1) {
-					data['flipped'] = body.getLinearVelocity().x < 0;
-				}
-
-				var falling = false;
-				if (body.getLinearVelocity().y > 1) {
-					falling = true;
-				}
-
-				if (falling || isOnLadder()) {
-					data['frame'] = 5;
-				} else {
-
-					if (data['frame'] == 5) {
-						data['frame'] = 2;
-					}
-
-					data['frame'] += Math.abs(body.getLinearVelocity().x) * 0.025;
-					if (data['frame'] > 4) {
-						data['frame'] = 1;
-					}
-				}
-			}
 
 			body = body.getNext();
 			j++;
 		}
-	}
-
-	function ladderNearUser():B2Body {
-		// Is user over a ladder?
-		var ladder = null;
-		world.queryPoint(function (fixture:box2D.dynamics.B2Fixture):Bool {
-			var userData:Map<String,Dynamic> = fixture.getBody().getUserData();
-			if (userData != null) {
-				if (userData['type'] == 'ladder') {
-					ladder = fixture.getBody();
-				}
-			}
-			return true;
-		}, player.getPosition());
-		return ladder;
 	}
 
 	function refresh() {
@@ -297,19 +346,16 @@ class ProtectTheWall {
 		tick();
 	}
 
-// Use the ladder drawing method to do title screen logo!
-
 	function createGroundAt(tileX:Float, tileY:Float, groundWidth:Int) {
 		var bodyDef = new B2BodyDef();
 		bodyDef.fixedRotation = true;
 
 		// "x2d sets the position of the center of an object, not the top left like normal"
-
 		// Add a bit to the position so that a small nudge won't move immovable things to the next pixel.
-		bodyDef.position.set(0.05 + tileX + groundWidth * tileWidth * 0.5 - tileWidth * 0.5, 0.05 + tileY);
+		bodyDef.position.set(0.05 + tileX + groundWidth * GameObject.tileWidth * 0.5 - GameObject.tileWidth * 0.5, 0.05 + tileY);
 
 		var boxShape = new B2PolygonShape();
-		boxShape.setAsBox(tileWidth * groundWidth * 0.5, tileHeight * 0.5);
+		boxShape.setAsBox(GameObject.tileWidth * groundWidth * 0.5, GameObject.tileHeight * 0.5);
 		var fixtureDef = new B2FixtureDef();
 		fixtureDef.shape = boxShape;
 		fixtureDef.friction = 0.2;
@@ -336,7 +382,7 @@ class ProtectTheWall {
 		var fixtureDef = new B2FixtureDef();
 
 		var boxShape = new B2PolygonShape();
-		boxShape.setAsBox(tileWidth * 0.45, tileHeight * 0.46);
+		boxShape.setAsBox(GameObject.tileWidth * 0.45, GameObject.tileHeight * 0.46);
 
 		fixtureDef.filter.categoryBits = 0x0002;
 		fixtureDef.filter.maskBits = 0x0001 | 0x0002;
@@ -362,11 +408,11 @@ class ProtectTheWall {
 	function createLadderAt(tileX:Float, tileY:Float, height:Float) {
 		var bodyDef = new B2BodyDef();
 		bodyDef.fixedRotation = false;
-		bodyDef.position.set(tileX, tileY - tileHeight * 0.5 * height);
+		bodyDef.position.set(tileX, tileY - GameObject.tileHeight * 0.5 * height);
 		var fixtureDef = new B2FixtureDef();
 
 		var boxShape = new B2PolygonShape();
-		boxShape.setAsBox(tileWidth * 0.5, tileHeight * 0.5 * height);
+		boxShape.setAsBox(GameObject.tileWidth * 0.5, GameObject.tileHeight * 0.5 * height);
 
 		fixtureDef.filter.categoryBits = 0x0004;
 		fixtureDef.filter.maskBits = 0x0001 | 0x0004;
@@ -403,8 +449,8 @@ class ProtectTheWall {
 
 				var ch = level.charAt(y * 29 + x);
 				var nextCh = level.charAt(y * 29 + x + 1);
-				var physX:Float = (x + 0.5) * tileWidth;
-				var physY:Float = (y + 0.5) * tileHeight;
+				var physX:Float = (x + 0.5) * GameObject.tileWidth;
+				var physY:Float = (y + 0.5) * GameObject.tileHeight;
 
 				// If there are several ground tiles next to each other then create one bigger continuous
 				// block. Otherwise sliding on it won't work properly (some Box2D quirk?). 
@@ -413,7 +459,7 @@ class ProtectTheWall {
 				}
 				if (ch != nextCh) {
 					if (ch == 'x') {
-						var st:Float = physX - (groundWidth - 1) * tileWidth;
+						var st:Float = physX - (groundWidth - 1) * GameObject.tileWidth;
 						createGroundAt(st, physY, groundWidth);
 					}
 					groundWidth = 0;
@@ -532,26 +578,6 @@ class ProtectTheWall {
 		var joint = world.createJoint(jointDef);
 		return joint;
 	}
-
-	public function someBodyAtPoint(px, py):Bool {
-	    // Make a small box.
-	    var px2 = px;
-	    var py2 = py;
-	    var pointVec:B2Vec2 = new B2Vec2();
-	    pointVec.set(px2, py2);
-	    var aabb = new B2AABB();
-	    aabb.lowerBound.set(px2 - 0.001, py2 - 0.001);
-	    aabb.upperBound.set(px2 + 0.001, py2 + 0.001);
-	    
-	    // Query the world for overlapping shapes.
-	    var k_maxCount:Int = 10;
-	    var shapes = [];
-
-	    overlaps = false;
-	    world.queryAABB(callback, aabb);
-	    return overlaps;
-	}
-
 }
 
 class Game {
