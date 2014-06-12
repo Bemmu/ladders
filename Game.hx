@@ -66,7 +66,7 @@ class GameObject {
 	function overLadder():B2Body {
 		var ladder = null;
 		world.queryPoint(function (fixture:box2D.dynamics.B2Fixture):Bool {
-			var gameObject:GameObject = body.getUserData();
+			var gameObject:GameObject = fixture.getBody().getUserData();
 			if (gameObject != null) {
 				if (gameObject.isLadder) {
 					ladder = fixture.getBody();
@@ -78,7 +78,6 @@ class GameObject {
 	}
 
 	public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
-
 	}
 
 /*	public function someBodyAtPoint(px, py):Bool {
@@ -134,7 +133,7 @@ class StickMan extends GameObject {
 				frame = 2;
 			}
 
-			frame += Math.abs(body.getLinearVelocity().x) * 0.025;
+			frame += Math.abs(body.getLinearVelocity().x) * (0.025 / 6.0);
 			if (frame > 4) {
 				frame = 1;
 			}
@@ -150,7 +149,15 @@ class StickMan extends GameObject {
 	}
 
 	function tryGrabbingLadder() {
-		trace('would climb');
+		var ladder = overLadder();
+		if (ladder != null) {
+			var jointDef = new B2DistanceJointDef();
+			jointDef.bodyA = body; 
+			jointDef.bodyB = ladder;
+			jointDef.localAnchorA = new B2Vec2(0.0, 0.0); // Will cause mayhem, but let's just try it
+			jointDef.localAnchorB = new B2Vec2(0.0, 0.0);
+			ladderJoint = world.createJoint(jointDef);			
+		}
 	}
 
 	function moveAlongLadder(up:Bool) {
@@ -253,7 +260,7 @@ class Player extends StickMan {
 		}
 
 		if (keys[Keyboard.SPACE]||keys[Keyboard.Z]||keys[Keyboard.X]) {
-			letGoOfLadder();
+//			letGoOfLadder();
 //			jump();
 		} else {
 			canStillJumpTicks = 0;
@@ -285,14 +292,19 @@ class Ladder extends Game.GameObject {
 		super(body, world);
 		isLadder = true;
 	}
+
+	override public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
+		buffer.fillRect(new Rectangle(bodyX, bodyY, 10, 10), 0xff00ffff);
+
+		// Where are the corners of the ladder on the
+	}
 }
 
 class ProtectTheWall {
 	var buffer:BitmapData = null;
 	var sheet:BitmapData = null;
 	var keys:Map<Int, Bool> = new Map();
-	var physScale = 10.0;
-	var screenScale = 2.0; // how many times larger assets should be shown on screen relative to their native
+	var screenScale = 2.0; // how many times larger assets should be shown on screen relative to physics coordinates
 	var world:B2World;
 	var debugSprite:Sprite;
 	var player:B2Body = null;
@@ -300,7 +312,7 @@ class ProtectTheWall {
 	var ladderGrabDistance = 4;
 
 	function tick() {
-		world.step(1.0/physScale, 10, 10);
+		world.step(1.0/60.0, 10, 10);
 
 		var body = world.getBodyList();
 		var gameObject:GameObject;
@@ -535,7 +547,6 @@ class ProtectTheWall {
 	var contactListener:B2ContactListener;
 
 	public function new(sheet:flash.display.BitmapData) {
-		trace('new');
 		this.sheet = sheet;
 
 		world = new B2World(new B2Vec2(0.0, 10.0), true);
@@ -552,11 +563,7 @@ class ProtectTheWall {
 
 		flash.Lib.current.stage.addEventListener(Event.ENTER_FRAME, OnEnter);
 		debugSetup();
-		trace('new over');
 	}
-
-	// Welcome to your new job as ladder inspector.
-	// Your job is simple: climb every ladder to ensure safety!
 
 	var overlaps:Bool;
 	function callback(fixture:B2Fixture) {
