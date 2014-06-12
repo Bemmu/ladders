@@ -264,6 +264,11 @@ class Player extends StickMan {
 class Ground extends GameObject {
 	public var groundWidth:Int;
 
+	override public function new(body:B2Body, world:B2World, groundWidth:Int) {
+		super(body, world);
+		this.groundWidth = groundWidth;
+	}
+
 	override public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
 		for (i in 0...groundWidth) {
 			copyPixelsFromSpriteSheet(buffer, sheet, new Point(
@@ -296,15 +301,24 @@ class ProtectTheWall {
 
 	function tick() {
 		world.step(1.0/physScale, 10, 10);
-	}
 
+		var body = world.getBodyList();
+		var gameObject:GameObject;
+
+		while (body != null) {
+			gameObject = body.getUserData();
+			if (gameObject != null) {
+				gameObject.tick();
+			}
+			body = body.getNext();
+		}
+	}
 
 	var i = 0;
 
 	function drawBodies() {
 		i++;
 		var body = world.getBodyList();
-		var j = 0;
 		while (body != null) {
 			var gameObject:GameObject = body.getUserData();
 
@@ -334,7 +348,6 @@ class ProtectTheWall {
 */
 
 			body = body.getNext();
-			j++;
 		}
 	}
 
@@ -363,15 +376,11 @@ class ProtectTheWall {
 		fixtureDef.filter.categoryBits = 0x0001;
 		fixtureDef.filter.maskBits = 0x0001 | 0x0002 | 0x0004;
 
-		var userData:Map<String,Dynamic> = [
-			'type' => 'ground',
-			'frame' => 0,
-			'flipped' => false,
-			'groundWidth' => groundWidth
-		];
-		bodyDef.userData = userData;
-
 		var body = world.createBody(bodyDef);
+
+		var ground = new Ground(body, world, groundWidth);
+		body.setUserData(ground);
+
 		body.createFixture(fixtureDef);
 	}
 
@@ -393,14 +402,10 @@ class ProtectTheWall {
 		bodyDef.type = B2Body.b2_dynamicBody;
 		bodyDef.allowSleep = false;
 
-		var userData:Map<String,Dynamic> = [
-			'type' => 'player',
-			'frame' => 1,
-			'flipped' => false
-		];
-		bodyDef.userData = userData;
-
 		var body = world.createBody(bodyDef);
+		var player = new Player(body, world, keys);
+		body.setUserData(player);
+
 		body.createFixture(fixtureDef);
 		return body;
 	}
@@ -423,12 +428,10 @@ class ProtectTheWall {
 		bodyDef.type = B2Body.b2_dynamicBody;
 		bodyDef.allowSleep = false;
 
-		var userData:Map<String,Dynamic> = [
-			'type' => 'ladder'
-		];
-		bodyDef.userData = userData;
-
 		var body = world.createBody(bodyDef);
+		var ladder = new Ladder(body, world);
+		body.setUserData(ladder);
+
 		body.createFixture(fixtureDef);
 
 		return body;
@@ -532,6 +535,7 @@ class ProtectTheWall {
 	var contactListener:B2ContactListener;
 
 	public function new(sheet:flash.display.BitmapData) {
+		trace('new');
 		this.sheet = sheet;
 
 		world = new B2World(new B2Vec2(0.0, 10.0), true);
@@ -548,7 +552,7 @@ class ProtectTheWall {
 
 		flash.Lib.current.stage.addEventListener(Event.ENTER_FRAME, OnEnter);
 		debugSetup();
-
+		trace('new over');
 	}
 
 	// Welcome to your new job as ladder inspector.
