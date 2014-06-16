@@ -262,7 +262,7 @@ class ProtectTheWall {
 	public function new(sheet:flash.display.BitmapData) {
 		this.sheet = sheet;
 
-		world = new B2World(new B2Vec2(0.0, 10.0), true);
+		world = new B2World(new B2Vec2(0.0, 30.0), true);
 
 		contactListener = new ContactListener();
 		world.setContactListener(contactListener);

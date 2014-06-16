@@ -15,6 +15,13 @@ class Player extends StickMan {
 	}
 
 	override public function tick() {
+		var vel = body.getLinearVelocity();
+
+		var max_velocity = 6.0;
+		if (vel.x > max_velocity) vel.x = max_velocity;
+		if (vel.x < -max_velocity) vel.x = -max_velocity;
+		body.setLinearVelocity(new B2Vec2(vel.x, vel.y));
+
 		if (keys[Keyboard.RIGHT] || keys[Keyboard.D]) {
 
 /*			note scaling not fixed here var ax = body.getWorldCenter().x + GameObject.spriteWidth/screenScale * 0.55;
@@ -25,7 +32,7 @@ class Player extends StickMan {
 
 //			if (!groundOnRight) {
 				body.applyImpulse(new B2Vec2(
-					0.2,
+					0.5,
 					0.0
 				), body.getWorldCenter());
 //			}
@@ -37,7 +44,7 @@ class Player extends StickMan {
 
 			if (!groundOnLeft) {*/
 				body.applyImpulse(new B2Vec2(
-					-0.2,
+					-0.5,
 					0.0
 				), body.getWorldCenter());
 //			}

@@ -41,7 +41,7 @@ class StickMan extends GameObject {
 				frame = 2;
 			}
 
-			frame += Math.abs(body.getLinearVelocity().x) * (0.025 / 6.0);
+			frame += Math.abs(body.getLinearVelocity().x) * (0.025);
 			if (frame > 4) {
 				frame = 1;
 			}
