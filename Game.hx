@@ -28,22 +28,22 @@ class ContactListener extends B2ContactListener {
 
 // To add behavior and drawing to Box2D bodies
 class GameObject {
+	public static var spriteWidth = 20; // in pixels
 	public static var spriteHeight = 22;
-	public static var spriteWidth = 20;
-	public static var tileWidth = 10;
-	public static var tileHeight = 11;
 	public var flipped = false;
 	public var frame = 0.0;
 	var body:B2Body = null;
 	var world:B2World = null;
 	var isLadder = false;
+	var screenScale:Float;
 
 	public function tick() {
 	}
 
-	public function new(body:B2Body, world:B2World) {
+	public function new(body:B2Body, world:B2World, screenScale:Float) {
 		this.body = body;
 		this.world = world;
+		this.screenScale = screenScale;
 	}
 
 	public function copyPixelsFromSpriteSheet(buffer:BitmapData, sheet:BitmapData, dest:Point) {
@@ -108,6 +108,11 @@ class StickMan extends GameObject {
 	var climbSpeed = 0.05;
 	var jumpTicks = 5;
 	var canStillJumpTicks = 5; // countdown for how long can still continue jumping
+
+	override public function new(body:B2Body, world:B2World, screenScale:Float) {
+		super(body, world, screenScale);
+		frame = 1;
+	}
 
 	function isHoldingOnToLadder() {
 		return ladderJoint != null;
@@ -211,18 +216,18 @@ class StickMan extends GameObject {
 class Player extends StickMan {
 	var keys:Map<Int, Bool> = new Map();
 	
-	override public function new(body:B2Body, world:B2World, keys:Map<Int, Bool>) {
-		super(body, world);
+	override public function new(body:B2Body, world:B2World, screenScale:Float, keys:Map<Int, Bool>) {
+		super(body, world, screenScale);
 		this.keys = keys;
 	}
 
 	override public function tick() {
 		if (keys[Keyboard.RIGHT] || keys[Keyboard.D]) {
 
-			var ax = body.getWorldCenter().x + GameObject.tileWidth * 0.55;
-			var ay = body.getWorldCenter().y - GameObject.tileHeight * 0.40;
-			var bx = body.getWorldCenter().x + GameObject.tileWidth * 0.55;
-			var by = body.getWorldCenter().y + GameObject.tileHeight * 0.40;
+			var ax = body.getWorldCenter().x + GameObject.spriteWidth/screenScale * 0.55;
+			var ay = body.getWorldCenter().y - GameObject.spriteHeight/screenScale * 0.40;
+			var bx = body.getWorldCenter().x + GameObject.spriteWidth/screenScale * 0.55;
+			var by = body.getWorldCenter().y + GameObject.spriteHeight/screenScale * 0.40;
 //			var groundOnRight:Bool = someBodyAtPoint(ax, ay) || someBodyAtPoint(bx, by);
 
 //			if (!groundOnRight) {
@@ -271,15 +276,15 @@ class Player extends StickMan {
 class Ground extends GameObject {
 	public var groundWidth:Int;
 
-	override public function new(body:B2Body, world:B2World, groundWidth:Int) {
-		super(body, world);
+	override public function new(body:B2Body, world:B2World, screenScale:Float, groundWidth:Int) {
+		super(body, world, screenScale);
 		this.groundWidth = groundWidth;
 	}
 
 	override public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
 		for (i in 0...groundWidth) {
 			copyPixelsFromSpriteSheet(buffer, sheet, new Point(
-				bodyX - 10 - (groundWidth-1) * GameObject.tileWidth + i * GameObject.tileWidth * 2, 
+				bodyX - 10 - (groundWidth-1) * GameObject.spriteWidth/screenScale + i * GameObject.spriteWidth/2 * 2, 
 				bodyY - 11
 			));
 		}
@@ -288,15 +293,17 @@ class Ground extends GameObject {
 }
 
 class Ladder extends Game.GameObject {
-	override public function new(body:B2Body, world:B2World) {
-		super(body, world);
+	override public function new(body:B2Body, world:B2World, screenScale:Float) {
+		super(body, world, screenScale);
 		isLadder = true;
 	}
 
 	override public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
 		buffer.fillRect(new Rectangle(bodyX, bodyY, 10, 10), 0xff00ffff);
 
-		// Where are the corners of the ladder on the
+		// To draw, need to find the corners.
+		// To find the corners, need ... physics body info and screenscale.
+
 	}
 }
 
@@ -304,7 +311,10 @@ class ProtectTheWall {
 	var buffer:BitmapData = null;
 	var sheet:BitmapData = null;
 	var keys:Map<Int, Bool> = new Map();
-	var screenScale = 2.0; // how many times larger assets should be shown on screen relative to physics coordinates
+	var screenScale = 20; // how many times larger assets should be shown on screen relative to physics coordinates
+
+	// tileWidth and height are in pixels
+
 	var world:B2World;
 	var debugSprite:Sprite;
 	var player:B2Body = null;
@@ -343,29 +353,13 @@ class ProtectTheWall {
 			gameObject.draw(buffer, sheet, Math.floor(body.getPosition().x * screenScale), Math.floor(body.getPosition().y * screenScale));
 			gameObject.tick();
 
-/*			if (data['type'] == 'ladder') {
-				if (ladderJoint == null) {
-					trace("create te");
-					ladderJoint = createTestJoint(body);
-				}
-			}
-
-			if (data['type'] == 'player') {
-				if (ladderJoint != null) {
-					trace("destroy te");
-					world.destroyJoint(ladderJoint);
-					ladderJoint = null;
-				}
-			}
-*/
-
 			body = body.getNext();
 		}
 	}
 
 	function refresh() {
 		buffer.fillRect(buffer.rect, 0xff0000ff);
-		drawBodies();
+//		drawBodies();
 		world.drawDebugData();
 		buffer.draw(debugSprite);
 		tick();
@@ -377,10 +371,19 @@ class ProtectTheWall {
 
 		// "x2d sets the position of the center of an object, not the top left like normal"
 		// Add a bit to the position so that a small nudge won't move immovable things to the next pixel.
-		bodyDef.position.set(0.05 + tileX + groundWidth * GameObject.tileWidth * 0.5 - GameObject.tileWidth * 0.5, 0.05 + tileY);
+		bodyDef.position.set(
+			(0.05 + tileX)/screenScale, 
+			(0.05 + tileY)/screenScale
+		);
 
 		var boxShape = new B2PolygonShape();
-		boxShape.setAsBox(GameObject.tileWidth * groundWidth * 0.5, GameObject.tileHeight * 0.5);
+
+		// Takes half-width and half-height
+		boxShape.setAsBox(
+			(GameObject.spriteWidth * groundWidth * 0.5)/screenScale,
+			(GameObject.spriteHeight * 0.5)/screenScale
+		);
+
 		var fixtureDef = new B2FixtureDef();
 		fixtureDef.shape = boxShape;
 		fixtureDef.friction = 0.2;
@@ -389,8 +392,7 @@ class ProtectTheWall {
 		fixtureDef.filter.maskBits = 0x0001 | 0x0002 | 0x0004;
 
 		var body = world.createBody(bodyDef);
-
-		var ground = new Ground(body, world, groundWidth);
+		var ground = new Ground(body, world, screenScale, groundWidth);
 		body.setUserData(ground);
 
 		body.createFixture(fixtureDef);
@@ -399,11 +401,14 @@ class ProtectTheWall {
 	function createPlayerAt(tileX:Float, tileY:Float) {
 		var bodyDef = new B2BodyDef();
 		bodyDef.fixedRotation = true;
-		bodyDef.position.set(tileX, tileY);
+		bodyDef.position.set(tileX/screenScale, tileY/screenScale);
 		var fixtureDef = new B2FixtureDef();
 
 		var boxShape = new B2PolygonShape();
-		boxShape.setAsBox(GameObject.tileWidth * 0.45, GameObject.tileHeight * 0.46);
+		boxShape.setAsBox(
+			(GameObject.spriteWidth * 0.9 * 0.5)/screenScale, 
+			(GameObject.spriteHeight * 0.92 * 0.5)/screenScale
+		);
 
 		fixtureDef.filter.categoryBits = 0x0002;
 		fixtureDef.filter.maskBits = 0x0001 | 0x0002;
@@ -415,7 +420,7 @@ class ProtectTheWall {
 		bodyDef.allowSleep = false;
 
 		var body = world.createBody(bodyDef);
-		var player = new Player(body, world, keys);
+		var player = new Player(body, world, screenScale, keys);
 		body.setUserData(player);
 
 		body.createFixture(fixtureDef);
@@ -425,11 +430,20 @@ class ProtectTheWall {
 	function createLadderAt(tileX:Float, tileY:Float, height:Float) {
 		var bodyDef = new B2BodyDef();
 		bodyDef.fixedRotation = false;
-		bodyDef.position.set(tileX, tileY - GameObject.tileHeight * 0.5 * height);
+		bodyDef.position.set(
+			tileX/screenScale, 
+			(tileY - height*GameObject.spriteHeight*0.5)/screenScale
+		);
 		var fixtureDef = new B2FixtureDef();
 
 		var boxShape = new B2PolygonShape();
-		boxShape.setAsBox(GameObject.tileWidth * 0.5, GameObject.tileHeight * 0.5 * height);
+		boxShape.setAsBox(
+			(GameObject.spriteWidth * 0.5)/screenScale, 
+			(GameObject.spriteHeight * 0.5 * height)/screenScale
+		);
+
+		// I'm very confused by these two coordinate systems.
+		// 
 
 		fixtureDef.filter.categoryBits = 0x0004;
 		fixtureDef.filter.maskBits = 0x0001 | 0x0004;
@@ -441,7 +455,7 @@ class ProtectTheWall {
 		bodyDef.allowSleep = false;
 
 		var body = world.createBody(bodyDef);
-		var ladder = new Ladder(body, world);
+		var ladder = new Ladder(body, world, screenScale);
 		body.setUserData(ladder);
 
 		body.createFixture(fixtureDef);
@@ -453,19 +467,19 @@ class ProtectTheWall {
 		var ladderAlreadyCreated:Map<String, Bool> = new Map();
 		var level = Levels.levels[1];
 
-		var y = 15;
+		var y = 15; // x and y refer to the level string here
 		while (y > 0) {
 			y--;
 
 			var prevCh = null;
-			var groundWidth = 0;
+			var groundWidth = 0; // for making larger physics blocks for ground (i.e. 10x1 instead of ten 1x1)
 
 			for (x in 0...28) {
 
-				var ch = level.charAt(y * 29 + x);
-				var nextCh = level.charAt(y * 29 + x + 1);
-				var physX:Float = (x + 0.5) * GameObject.tileWidth;
-				var physY:Float = (y + 0.5) * GameObject.tileHeight;
+				var ch = level.charAt(y * 29 + x); // level is represented by characters, look at Levels.hx if you don't get it
+				var nextCh = level.charAt(y * 29 + x + 1); // lookahead
+				var physX:Float = (x + 0.5) * GameObject.spriteWidth;
+				var physY:Float = (y + 0.5) * GameObject.spriteHeight;
 
 				// If there are several ground tiles next to each other then create one bigger continuous
 				// block. Otherwise sliding on it won't work properly (some Box2D quirk?). 
@@ -474,7 +488,7 @@ class ProtectTheWall {
 				}
 				if (ch != nextCh) {
 					if (ch == 'x') {
-						var st:Float = physX - (groundWidth - 1) * GameObject.tileWidth;
+						var st:Float = physX - (groundWidth - 1) * GameObject.spriteWidth * 0.5;
 						createGroundAt(st, physY, groundWidth);
 					}
 					groundWidth = 0;
@@ -504,18 +518,6 @@ class ProtectTheWall {
 					}
 					ladderAlreadyCreated[ch] = true;
 				}
-
-/*				if (isLadder) {
-					if (!ladders.exists(ch)) {
-						ladders[ch] = [];
-					}
-					ladders[ch].push([
-						'startX' => (x + 0.5) * tileWidth, 
-						'startY' => (y + 1.0) * tileHeight,
-						'endX' => (x + 0.5) * tileWidth, 
-						'endY' => (y) * tileHeight
-					]);
-				}*/
 			}
 		}
 	}
@@ -598,6 +600,5 @@ class Game {
     		var game = new ProtectTheWall(untyped loader.content.bitmapData);
     	});
     	loader.load(new flash.net.URLRequest("sheet.png"));
-    	
     }
 }
