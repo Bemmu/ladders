@@ -224,15 +224,15 @@ class Player extends StickMan {
 	override public function tick() {
 		if (keys[Keyboard.RIGHT] || keys[Keyboard.D]) {
 
-			var ax = body.getWorldCenter().x + GameObject.spriteWidth/screenScale * 0.55;
+/*			note scaling not fixed here var ax = body.getWorldCenter().x + GameObject.spriteWidth/screenScale * 0.55;
 			var ay = body.getWorldCenter().y - GameObject.spriteHeight/screenScale * 0.40;
 			var bx = body.getWorldCenter().x + GameObject.spriteWidth/screenScale * 0.55;
-			var by = body.getWorldCenter().y + GameObject.spriteHeight/screenScale * 0.40;
+			var by = body.getWorldCenter().y + GameObject.spriteHeight/screenScale * 0.40;*/
 //			var groundOnRight:Bool = someBodyAtPoint(ax, ay) || someBodyAtPoint(bx, by);
 
 //			if (!groundOnRight) {
 				body.applyImpulse(new B2Vec2(
-					80.0,
+					0.2,
 					0.0
 				), body.getWorldCenter());
 //			}
@@ -244,7 +244,7 @@ class Player extends StickMan {
 
 			if (!groundOnLeft) {*/
 				body.applyImpulse(new B2Vec2(
-					-80.0,
+					-0.2,
 					0.0
 				), body.getWorldCenter());
 //			}
@@ -311,7 +311,7 @@ class ProtectTheWall {
 	var buffer:BitmapData = null;
 	var sheet:BitmapData = null;
 	var keys:Map<Int, Bool> = new Map();
-	var screenScale = 20; // how many times larger assets should be shown on screen relative to physics coordinates
+	var screenScale = 30; // 30 pixels = 1 meter
 
 	// tileWidth and height are in pixels
 
@@ -359,7 +359,7 @@ class ProtectTheWall {
 
 	function refresh() {
 		buffer.fillRect(buffer.rect, 0xff0000ff);
-//		drawBodies();
+		//drawBodies();
 		world.drawDebugData();
 		buffer.draw(debugSprite);
 		tick();
@@ -386,7 +386,7 @@ class ProtectTheWall {
 
 		var fixtureDef = new B2FixtureDef();
 		fixtureDef.shape = boxShape;
-		fixtureDef.friction = 0.2;
+		fixtureDef.friction = 1.0;
 		fixtureDef.density = 1.0;
 		fixtureDef.filter.categoryBits = 0x0001;
 		fixtureDef.filter.maskBits = 0x0001 | 0x0002 | 0x0004;
@@ -413,7 +413,7 @@ class ProtectTheWall {
 		fixtureDef.filter.categoryBits = 0x0002;
 		fixtureDef.filter.maskBits = 0x0001 | 0x0002;
 		fixtureDef.shape = boxShape;
-		fixtureDef.friction = 0.5;
+		fixtureDef.friction = 1.0;
 		fixtureDef.density = 1.0;
 
 		bodyDef.type = B2Body.b2_dynamicBody;
