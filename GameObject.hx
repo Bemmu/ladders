@@ -8,7 +8,7 @@ class GameObject {
 	public static var spriteHeight = 22;
 	public var flipped = false;
 	public var frame = 0.0;
-	var body:B2Body = null;
+	public var body:B2Body = null;
 	var world:B2World = null;
 	var isLadder = false;
 	var screenScale:Float;
@@ -16,10 +16,8 @@ class GameObject {
 	public function tick() {
 	}
 
-	public function new(body:B2Body, world:B2World, screenScale:Float) {
-		this.body = body;
+	public function new(tileX:Float, tileY:Float, screenScale:Float, world:B2World) {
 		this.world = world;
-		this.screenScale = screenScale;
 	}
 
 	public function copyPixelsFromSpriteSheet(buffer:BitmapData, sheet:BitmapData, dest:Point) {

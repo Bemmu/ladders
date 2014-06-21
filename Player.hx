@@ -9,8 +9,8 @@ import box2D.common.math.*;
 class Player extends StickMan {
 	var keys:Map<Int, Bool> = new Map();
 	
-	override public function new(body:B2Body, world:B2World, screenScale:Float, keys:Map<Int, Bool>) {
-		super(body, world, screenScale);
+	override public function new(tileX:Float, tileY:Float, screenScale:Float, world:B2World, keys:Map<Int, Bool>) {
+		super(tileX, tileY, screenScale, world);
 		this.keys = keys;
 	}
 

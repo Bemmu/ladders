@@ -19,7 +19,7 @@ class ProtectTheWall {
 	var buffer:BitmapData = null;
 	var sheet:BitmapData = null;
 	var keys:Map<Int, Bool> = new Map();
-	var screenScale = 30; // 30 pixels = 1 meter
+	public var screenScale = 30; // 30 pixels = 1 meter
 
 	// tileWidth and height are in pixels
 
@@ -77,101 +77,18 @@ class ProtectTheWall {
 	}
 
 	function createGroundAt(tileX:Float, tileY:Float, groundWidth:Int) {
-		var bodyDef = new B2BodyDef();
-		bodyDef.fixedRotation = true;
-
-		// "x2d sets the position of the center of an object, not the top left like normal"
-		// Add a bit to the position so that a small nudge won't move immovable things to the next pixel.
-		bodyDef.position.set(
-			(0.05 + tileX)/screenScale, 
-			(0.05 + tileY)/screenScale
-		);
-
-		var boxShape = new B2PolygonShape();
-
-		// Takes half-width and half-height
-		boxShape.setAsBox(
-			(GameObject.spriteWidth * groundWidth * 0.5)/screenScale,
-			(GameObject.spriteHeight * 0.5)/screenScale
-		);
-
-		var fixtureDef = new B2FixtureDef();
-		fixtureDef.shape = boxShape;
-		fixtureDef.friction = 1.0;
-		fixtureDef.density = 1.0;
-		fixtureDef.filter.categoryBits = 0x0001;
-		fixtureDef.filter.maskBits = 0x0001 | 0x0002 | 0x0004;
-
-		var body = world.createBody(bodyDef);
-		var ground = new Ground(body, world, screenScale, groundWidth);
-		body.setUserData(ground);
-
-		body.createFixture(fixtureDef);
+		var ground = new Ground(tileX, tileY, screenScale, world, groundWidth);
+		return ground.body;
 	}
 
 	function createPlayerAt(tileX:Float, tileY:Float) {
-		var bodyDef = new B2BodyDef();
-		bodyDef.fixedRotation = true;
-		bodyDef.position.set(tileX/screenScale, tileY/screenScale);
-		var fixtureDef = new B2FixtureDef();
-
-		var boxShape = new B2PolygonShape();
-		boxShape.setAsBox(
-			(GameObject.spriteWidth * 0.9 * 0.5)/screenScale, 
-			(GameObject.spriteHeight * 0.92 * 0.5)/screenScale
-		);
-
-		fixtureDef.filter.categoryBits = 0x0002;
-		fixtureDef.filter.maskBits = 0x0001 | 0x0002;
-		fixtureDef.shape = boxShape;
-		fixtureDef.friction = 1.0;
-		fixtureDef.density = 1.0;
-
-		bodyDef.type = B2Body.b2_dynamicBody;
-		bodyDef.allowSleep = false;
-
-		var body = world.createBody(bodyDef);
-		var player = new Player(body, world, screenScale, keys);
-		body.setUserData(player);
-
-		body.createFixture(fixtureDef);
-		return body;
+		var player = new Player(tileX, tileY, screenScale, world, keys); 
+		return player.body;
 	}
 
 	function createLadderAt(tileX:Float, tileY:Float, height:Float) {
-		var bodyDef = new B2BodyDef();
-		bodyDef.fixedRotation = false;
-		bodyDef.position.set(
-			tileX/screenScale, 
-			(tileY - height*GameObject.spriteHeight*0.5)/screenScale
-		);
-		var fixtureDef = new B2FixtureDef();
-
-		var boxShape = new B2PolygonShape();
-		boxShape.setAsBox(
-			(GameObject.spriteWidth * 0.5)/screenScale, 
-			(GameObject.spriteHeight * 0.5 * height)/screenScale
-		);
-
-		// I'm very confused by these two coordinate systems.
-		// 
-
-		fixtureDef.filter.categoryBits = 0x0004;
-		fixtureDef.filter.maskBits = 0x0001 | 0x0004;
-		fixtureDef.shape = boxShape;
-		fixtureDef.friction = 0.5;
-		fixtureDef.density = 1.0;
-
-		bodyDef.type = B2Body.b2_dynamicBody;
-		bodyDef.allowSleep = false;
-
-		var body = world.createBody(bodyDef);
-		var ladder = new Ladder(body, world, screenScale);
-		body.setUserData(ladder);
-
-		body.createFixture(fixtureDef);
-
-		return body;
+		var ladder = new Ladder(tileX, tileY, screenScale, world, height);
+		return ladder.body;
 	}
 
 	function makeLevel() {
