@@ -60,8 +60,8 @@ class StickMan extends GameObject {
 		var ladder = overLadder();
 		if (ladder != null) {
 			var jointDef = new B2DistanceJointDef();
-			jointDef.bodyA = body; 
-			jointDef.bodyB = ladder;
+			jointDef.bodyA = ladder; 
+			jointDef.bodyB = body;
 			jointDef.localAnchorA = new B2Vec2(0.0, 0.0); // Will cause mayhem, but let's just try it
 			jointDef.localAnchorB = new B2Vec2(0.0, 0.0);
 			ladderJoint = world.createJoint(jointDef);			
@@ -69,7 +69,7 @@ class StickMan extends GameObject {
 	}
 
 	function moveAlongLadder(up:Bool) {
-
+/*
 		var amount = up ? climbSpeed : -climbSpeed;
 
 		var ladderBody = ladderJoint.getBodyB();
@@ -81,15 +81,17 @@ class StickMan extends GameObject {
 		jointDef.localAnchorA = new B2Vec2(0.0, 0.0);
 		jointDef.localAnchorB = new B2Vec2(0.0, 0.0);
 		return world.createJoint(jointDef);
-
+*/
 	}
 
 	// Big arrows can be shot up to actually remove tiles so the player can fall to the ground.trace
 	// Could drop ... fuck it stop having ideas and start doing prototyping.
 
 	function letGoOfLadder() {
-		world.destroyJoint(ladderJoint);
-		ladderJoint = null;
+		if (ladderJoint != null) {
+			world.destroyJoint(ladderJoint);
+			ladderJoint = null;
+		}
 	}
 
 /*	function jump() {

@@ -65,7 +65,7 @@ class Player extends StickMan {
 		}
 
 		if (keys[Keyboard.SPACE]||keys[Keyboard.Z]||keys[Keyboard.X]) {
-//			letGoOfLadder();
+			letGoOfLadder();
 //			jump();
 		} else {
 			canStillJumpTicks = 0;
