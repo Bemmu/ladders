@@ -38,7 +38,7 @@ class Ladder extends GameObject {
 	}
 
 	override public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
-		buffer.fillRect(new Rectangle(bodyX, bodyY, 10, 10), 0xff00ffff);
+//		buffer.fillRect(new Rectangle(bodyX, bodyY, 10, 10), 0xff00ffff);
 
 		// To draw, need to find the corners.
 		// To find the corners, need ... physics body info and screenscale.

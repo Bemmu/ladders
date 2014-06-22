@@ -9,7 +9,7 @@ class StickMan extends GameObject {
 
 	// If holding on to a ladder, this joint connects him to it.
 	var ladderJoint:B2Joint = null;
-	var climbSpeed = 1;
+	var climbSpeed = 0.05;
 	var jumpTicks = 5;
 	var canStillJumpTicks = 5; // countdown for how long can still continue jumping
 
@@ -41,7 +41,6 @@ class StickMan extends GameObject {
 		body.setUserData(this);
 
 		body.createFixture(fixtureDef);
-
 	}
 
 	function isHoldingOnToLadder() {
@@ -83,38 +82,17 @@ class StickMan extends GameObject {
 		animate();
 	}
 
-	function makeLadderJoint(ladder, grabOffset:Float) {
+	function makeLadderJoint(ladder:B2Body, grabOffset:Float) {
+
+		// Stick to the ladder-relative horizontal center of the ladder near player
+		var stickManInLadderCoordinates = ladder.getLocalPoint(body.getWorldCenter());
+		var anchorA = ladder.getWorldPoint(new B2Vec2(0, stickManInLadderCoordinates.y + grabOffset));
+		var anchorB = body.getPosition();
+
 		var jointDef = new B2DistanceJointDef();
+		jointDef.initialize(ladder, body, anchorA, anchorB);
+		jointDef.length = 0;
 
-//		ladder.getPosition();
-//		var pos:B2Vec2 = ladder.getPosition();
-/*		pos.x -= body.getPosition().x;
-		pos.y -= body.getPosition().y;
-*/
-
-		var bA : box2D.dynamics.B2Body = ladder;			
-		var bB : box2D.dynamics.B2Body = body;			
-		var anchorA : box2D.common.math.B2Vec2 = bA.getPosition();
-		var anchorB : box2D.common.math.B2Vec2 = bB.getPosition();
-
-		anchorA.add(new B2Vec2(0.0, 0.1));
-
-		jointDef.initialize(bA, bB, anchorA, anchorB);
-/*
-		jointDef.bodyA = ladder; 
-		jointDef.bodyB = body;
-
-		// Oh it's like .. in the coordinate system so much that ig
-
-		// Connect center of the guy with the point in ladder that he is over.
-		jointDef.localAnchorA = new B2Vec2(
-			body.getPosition().x - ladder.getPosition().x,
-			body.getPosition().y - ladder.getPosition().y
-		); // Will cause mayhem, but let's just try it
-		jointDef.localAnchorB = new B2Vec2(0.0, grabOffset);
-
-		jointDef.length = 0.0;
-*/
 		ladderJoint = world.createJoint(jointDef);			
 	}
 
@@ -128,7 +106,7 @@ class StickMan extends GameObject {
 	function moveAlongLadder(up:Bool) {		
 		letGoOfLadder();
 		var ladder = overLadder();
-		makeLadderJoint(ladder, up ? climbSpeed : -climbSpeed);
+		makeLadderJoint(ladder, up ? -climbSpeed : climbSpeed);
 
 /*		var amount = up ? climbSpeed : -climbSpeed;
 
