@@ -20,12 +20,8 @@ class ProtectTheWall {
 	var sheet:BitmapData = null;
 	var keys:Map<Int, Bool> = new Map();
 	public var screenScale = 30; // 30 pixels = 1 meter
-
-	// tileWidth and height are in pixels
-
 	var world:B2World;
 	var debugSprite:Sprite;
-	var player:B2Body = null;
 	var jumpImpulse = 350;
 	var ladderGrabDistance = 4;
 
@@ -44,10 +40,7 @@ class ProtectTheWall {
 		}
 	}
 
-	var i = 0;
-
 	function drawBodies() {
-		i++;
 		var body = world.getBodyList();
 		while (body != null) {
 			var gameObject:GameObject = body.getUserData();
@@ -76,21 +69,6 @@ class ProtectTheWall {
 		tick();
 	}
 
-	function createGroundAt(tileX:Float, tileY:Float, groundWidth:Int) {
-		var ground = new Ground(tileX, tileY, screenScale, world, groundWidth);
-		return ground.body;
-	}
-
-	function createPlayerAt(tileX:Float, tileY:Float) {
-		var player = new Player(tileX, tileY, screenScale, world, keys); 
-		return player.body;
-	}
-
-	function createLadderAt(tileX:Float, tileY:Float, height:Float) {
-		var ladder = new Ladder(tileX, tileY, screenScale, world, height);
-		return ladder.body;
-	}
-
 	function makeLevel() {
 		var ladderAlreadyCreated:Map<String, Bool> = new Map();
 		var level = Levels.levels[1];
@@ -117,13 +95,14 @@ class ProtectTheWall {
 				if (ch != nextCh) {
 					if (ch == 'x') {
 						var st:Float = physX - (groundWidth - 1) * GameObject.spriteWidth * 0.5;
-						createGroundAt(st, physY, groundWidth);
+
+						new Ground(st, physY, screenScale, world, groundWidth);
 					}
 					groundWidth = 0;
 				}
 
 				if (ch == '@') {
-					player = createPlayerAt(physX, physY);
+					new Player(physX, physY, screenScale, world, keys); 
 				}
 
 				// Digits signify ladder pieces
@@ -142,7 +121,7 @@ class ProtectTheWall {
 						}
 						var ladderHeight = y - yLookAhead;
 
-						createLadderAt(physX, physY, ladderHeight);
+						new Ladder(physX, physY, screenScale, world, ladderHeight);
 					}
 					ladderAlreadyCreated[ch] = true;
 				}
@@ -184,7 +163,6 @@ class ProtectTheWall {
 		contactListener = new ContactListener();
 		world.setContactListener(contactListener);
 		makeLevel();
-		//player = createPlayerAt(100.0, 0.0);
 		initKeyboard();
 
 		buffer = new BitmapData(flash.Lib.current.stage.stageWidth, flash.Lib.current.stage.stageHeight);
