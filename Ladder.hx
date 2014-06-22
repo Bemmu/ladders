@@ -25,7 +25,7 @@ class Ladder extends GameObject {
 		fixtureDef.filter.categoryBits = 0x0004;
 		fixtureDef.filter.maskBits = 0x0001 | 0x0004;
 		fixtureDef.shape = boxShape;
-		fixtureDef.friction = 0.5;
+		fixtureDef.friction = 1.0;
 		fixtureDef.density = 1.0;
 
 		bodyDef.type = B2Body.b2_dynamicBody;

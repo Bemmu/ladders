@@ -61,6 +61,10 @@ class StickMan extends GameObject {
 
 		if (falling || isHoldingOnToLadder()) {
 			frame = 5;
+
+			if (isHoldingOnToLadder()) {
+				frame = 6 + (Std.int(body.getPosition().y*4)%2);
+			}
 		} else {
 
 			if (frame == 5) {
