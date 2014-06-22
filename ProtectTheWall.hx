@@ -194,29 +194,4 @@ class ProtectTheWall {
 		flash.Lib.current.stage.addEventListener(Event.ENTER_FRAME, OnEnter);
 		debugSetup();
 	}
-
-	var overlaps:Bool;
-	function callback(fixture:B2Fixture) {
-		var userData:Map<String,Dynamic> = fixture.getBody().getUserData();
-		var type:String = userData['type'];
-		if (type == 'player') {
-			return true; // continue to next fixture
-		}
-    	overlaps = true;    	
-    	return false; // don't continue to next fixture
-	}
-
-	function createTestJoint(bodyB:B2Body):B2Joint {
-		if (player == null) {
-			trace("Player was NULL when trying to create ladder joint.");
-			return null;
-		}
-		var jointDef = new B2DistanceJointDef();
-		jointDef.bodyA = player; 
-		jointDef.bodyB = bodyB;
-		jointDef.localAnchorA = new B2Vec2(0.0, 0.0); // Will cause mayhem, but let's just try it
-		jointDef.localAnchorB = new B2Vec2(0.0, 0.0);
-		var joint = world.createJoint(jointDef);
-		return joint;
-	}
 }

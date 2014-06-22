@@ -36,7 +36,7 @@ class Ground extends GameObject {
 		fixtureDef.filter.categoryBits = 0x0001;
 		fixtureDef.filter.maskBits = 0x0001 | 0x0002 | 0x0004;
 
-		var body = world.createBody(bodyDef);
+		body = world.createBody(bodyDef);
 		body.setUserData(this);
 
 		body.createFixture(fixtureDef);

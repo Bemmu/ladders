@@ -31,7 +31,7 @@ class Ladder extends GameObject {
 		bodyDef.type = B2Body.b2_dynamicBody;
 		bodyDef.allowSleep = false;
 
-		var body = world.createBody(bodyDef);
+		body = world.createBody(bodyDef);
 		body.setUserData(this);
 
 		body.createFixture(fixtureDef);
