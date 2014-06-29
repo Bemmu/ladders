@@ -80,8 +80,8 @@ class StickMan extends GameObject {
 
 	override public function draw(buffer:BitmapData, sheet:BitmapData, bodyX:Int, bodyY:Int) {
 		copyPixelsFromSpriteSheet(buffer, sheet, new Point(
-			bodyX - 10, 
-			bodyY - 11
+			bodyX - GameObject.spriteWidth/2, 
+			bodyY - GameObject.spriteHeight/2
 		));
 		animate();
 	}

@@ -18,6 +18,7 @@ class GameObject {
 
 	public function new(tileX:Float, tileY:Float, screenScale:Float, world:B2World) {
 		this.world = world;
+		this.screenScale = screenScale;
 	}
 
 	public function copyPixelsFromSpriteSheet(buffer:BitmapData, sheet:BitmapData, dest:Point) {

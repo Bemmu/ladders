@@ -64,7 +64,7 @@ class ProtectTheWall {
 	function refresh() {
 		buffer.fillRect(buffer.rect, 0xff0000ff);
 		drawBodies();
-		world.drawDebugData();
+//		world.drawDebugData();
 		buffer.draw(debugSprite);
 		tick();
 	}
