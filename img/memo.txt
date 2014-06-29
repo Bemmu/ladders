@@ -1,0 +1,2 @@
+convert anim.mp4 -layers Optimize anim.gif
+
