@@ -89,8 +89,20 @@ class StickMan extends GameObject {
 	function makeLadderJoint(ladder:B2Body, grabOffset:Float) {
 
 		// Stick to the ladder-relative horizontal center of the ladder near player
-		var stickManInLadderCoordinates = ladder.getLocalPoint(body.getWorldCenter());
+		// Even body position can become NaN...
+		trace('body center: ' + Std.string(body.getWorldCenter().x) + ', ' + Std.string(body.getWorldCenter().y));
+		// Body center becomes NaN first...
+
+		var stickManInLadderCoordinates = ladder.getLocalPoint(body.getWorldCenter()); // This can also be NaN
+		trace('stickman: ' + Std.string(stickManInLadderCoordinates.x) + ', ' + Std.string(stickManInLadderCoordinates.y));
+
+
 		var anchorA = ladder.getWorldPoint(new B2Vec2(0, stickManInLadderCoordinates.y + grabOffset));
+		trace('anchora: ' + Std.string(anchorA.x) + ', ' + Std.string(anchorA.y));
+//		var anchorA = ladder.getWorldPoint(new B2Vec2(0, 0));
+
+		// This can become NaN! That might be the source of the bug ...
+
 		var anchorB = body.getPosition();
 
 		var jointDef = new B2DistanceJointDef();
